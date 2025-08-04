@@ -1,0 +1,28 @@
+name: Test Workflow
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Install TLA+ tools
+        run: |
+          wget https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+
+      - name: Run tla2tools.jar
+        run: |
+          java -cp tla2tools.jar --version
