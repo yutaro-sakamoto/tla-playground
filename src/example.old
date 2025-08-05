@@ -1,0 +1,11 @@
+----------------- MODULE example ----------------
+
+(*--algorithm example
+begin 
+    skip;
+end algorithm; *)
+
+\* BEGIN TRANSLATION
+\* END TRANSLATION
+
+=======================
