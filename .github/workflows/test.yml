@@ -23,10 +23,6 @@ jobs:
         run: |
           wget https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
 
-      - name: Translate TLA+ code
-        run: |
-          java -cp tla2tools.jar pcal.trans src/example.tla
-
       - name: Run TLC
         run: |
-          java -jar tla2tools.jar -config src/example.cfg src/example.tla
+          java -jar tla2tools.jar -config example.cfg example.tla
