@@ -1,6 +1,8 @@
 ----------------- MODULE example ----------------
-EXTENDS Integers
+EXTENDS Integers, TLC, Sequences
+
 (*--algorithm example
+
 variables
   people = {"alice", "bob"},
   acc = [p \in people |-> 5],
@@ -16,6 +18,7 @@ begin
         acc[sender] := acc[sender] - amount;
     Deposit:
         acc[receiver] := acc[receiver] + amount;
+
 end algorithm; *)
 
 \* BEGIN TRANSLATION

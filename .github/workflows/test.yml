@@ -19,10 +19,5 @@ jobs:
           java-version: "21"
           distribution: "temurin"
 
-      - name: Install TLA+ tools
-        run: |
-          wget https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
-
-      - name: Run TLC
-        run: |
-          java -jar tla2tools.jar -config example.cfg example.tla
+      - name: Run a program
+        run: make
