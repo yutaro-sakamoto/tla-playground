@@ -4,59 +4,70 @@ EXTENDS Integers, TLC, Sequences
 (*--algorithm example
 
 variables
-  people = {"alice", "bob"},
-  acc = [p \in people |-> 5],
-  sender = "alice",
-  receiver = "bob",
-  amount = 3;
+    STATE_OPEN = "open",
+    STATE_CLOSE = "close",
+    None = 0,
+    programs = {1, 2, 3, 4},
+    fileLockedBy = None
+  ;
 
-define
-    NoOverdrafts == \A p \in people: acc[p] >= 0
-end define;
+process program \in programs
+variables state
 begin
-    Withdraw:
-        acc[sender] := acc[sender] - amount;
-    Deposit:
-        acc[receiver] := acc[receiver] + amount;
+    OPERATE:
+    while TRUE do
+        if state = STATE_CLOSE then
+            if fileLockedBy = None then
+                fileLockedBy := self;
+                state := STATE_OPEN;
+            end if;
+        elsif state = STATE_OPEN then
+            assert fileLockedBy = self;
+            fileLockedBy := None;
+            state := STATE_CLOSE;
+        else
+            state := STATE_CLOSE;
+        end if;
+    end while;
+end process;
 
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES pc, people, acc, sender, receiver, amount
+CONSTANT defaultInitValue
+VARIABLES STATE_OPEN, STATE_CLOSE, None, programs, fileLockedBy, state
 
-(* define statement *)
-NoOverdrafts == \A p \in people: acc[p] >= 0
+vars == << STATE_OPEN, STATE_CLOSE, None, programs, fileLockedBy, state >>
 
-
-vars == << pc, people, acc, sender, receiver, amount >>
+ProcSet == (programs)
 
 Init == (* Global variables *)
-        /\ people = {"alice", "bob"}
-        /\ acc = [p \in people |-> 5]
-        /\ sender = "alice"
-        /\ receiver = "bob"
-        /\ amount = 3
-        /\ pc = "Withdraw"
+        /\ STATE_OPEN = "open"
+        /\ STATE_CLOSE = "close"
+        /\ None = 0
+        /\ programs = {1, 2, 3, 4}
+        /\ fileLockedBy = None
+        (* Process program *)
+        /\ state = [self \in programs |-> defaultInitValue]
 
-Withdraw == /\ pc = "Withdraw"
-            /\ acc' = [acc EXCEPT ![sender] = acc[sender] - amount]
-            /\ pc' = "Deposit"
-            /\ UNCHANGED << people, sender, receiver, amount >>
+program(self) == /\ IF state[self] = STATE_CLOSE
+                       THEN /\ IF fileLockedBy = None
+                                  THEN /\ fileLockedBy' = self
+                                       /\ state' = [state EXCEPT ![self] = STATE_OPEN]
+                                  ELSE /\ TRUE
+                                       /\ UNCHANGED << fileLockedBy, state >>
+                       ELSE /\ IF state[self] = STATE_OPEN
+                                  THEN /\ Assert(fileLockedBy = self, 
+                                                 "Failure of assertion at line 25, column 13.")
+                                       /\ fileLockedBy' = None
+                                       /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
+                                  ELSE /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
+                                       /\ UNCHANGED fileLockedBy
+                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, None, programs >>
 
-Deposit == /\ pc = "Deposit"
-           /\ acc' = [acc EXCEPT ![receiver] = acc[receiver] + amount]
-           /\ pc' = "Done"
-           /\ UNCHANGED << people, sender, receiver, amount >>
-
-(* Allow infinite stuttering to prevent deadlock on termination. *)
-Terminating == pc = "Done" /\ UNCHANGED vars
-
-Next == Withdraw \/ Deposit
-           \/ Terminating
+Next == (\E self \in programs: program(self))
 
 Spec == Init /\ [][Next]_vars
-
-Termination == <>(pc = "Done")
 
 \* END TRANSLATION
 
