@@ -52,6 +52,7 @@ begin
                 assert state = STATE_OPEN;
                 if operation = OPERATION_CLOSE then
                     fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self);
+                    (* TODO: fix *)
                     recordLock := SelectSeq(recordLock, LAMBDA record: record[2] /= self);
                     state := STATE_CLOSE;
                 end if
