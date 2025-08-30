@@ -28,13 +28,18 @@ ALLOWED_OPERATIONS == [
     OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
 ]
 
+None == 0
+
+maxPrograms == 4
+programs == 1..maxPrograms
+
+maxKeys == 3
+keys == 1..maxKeys
+
 (*--algorithm example
 
 variables
     fileLockTable = <<>>,
-    maxPrograms = 4,
-    None = 0,
-    programs = 1..maxPrograms,
     recordLock = <<>>;
 
 define
@@ -63,6 +68,8 @@ begin
                     (* TODO: fix *)
                     recordLock := SelectSeq(recordLock, LAMBDA record: record[2] /= self);
                     state := STATE_CLOSE;
+                elsif operation = OPERATION_WRITE then
+                    skip;
                 end if
             end with;
         end if;
@@ -72,7 +79,7 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES pc, fileLockTable, maxPrograms, None, programs, recordLock
+VARIABLES pc, fileLockTable, recordLock
 
 (* define statement *)
 atMostOneProgramOpensOutput ==
@@ -80,16 +87,12 @@ atMostOneProgramOpensOutput ==
 
 VARIABLE state
 
-vars == << pc, fileLockTable, maxPrograms, None, programs, recordLock, state
-        >>
+vars == << pc, fileLockTable, recordLock, state >>
 
 ProcSet == (programs)
 
 Init == (* Global variables *)
         /\ fileLockTable = <<>>
-        /\ maxPrograms = 4
-        /\ None = 0
-        /\ programs = 1..maxPrograms
         /\ recordLock = <<>>
         (* Process program *)
         /\ state = [self \in programs |-> STATE_CLOSE]
@@ -106,16 +109,17 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE}:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 60, column 17.")
+                                           "Failure of assertion at line 65, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
                                             /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
                                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
-                                       ELSE /\ TRUE
+                                       ELSE /\ IF operation = OPERATION_WRITE
+                                                  THEN /\ TRUE
+                                                  ELSE /\ TRUE
                                             /\ UNCHANGED << fileLockTable, 
                                                             recordLock, state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
-                 /\ UNCHANGED << maxPrograms, None, programs >>
 
 program(self) == OPERATE(self)
 
