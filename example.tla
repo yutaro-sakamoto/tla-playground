@@ -13,7 +13,7 @@ variables
   ;
 
 process program \in programs
-variables state
+variables state = STATE_CLOSE
 begin
     OPERATE:
     while TRUE do
@@ -22,11 +22,9 @@ begin
                 fileLockedBy := self;
                 state := STATE_OPEN;
             end if;
-        elsif state = STATE_OPEN then
+        else
             assert fileLockedBy = self;
             fileLockedBy := None;
-            state := STATE_CLOSE;
-        else
             state := STATE_CLOSE;
         end if;
     end while;
@@ -35,7 +33,6 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-CONSTANT defaultInitValue
 VARIABLES STATE_OPEN, STATE_CLOSE, maxPrograms, None, programs, fileLockedBy, 
           state
 
@@ -52,7 +49,7 @@ Init == (* Global variables *)
         /\ programs = 1..maxPrograms
         /\ fileLockedBy = None
         (* Process program *)
-        /\ state = [self \in programs |-> defaultInitValue]
+        /\ state = [self \in programs |-> STATE_CLOSE]
 
 program(self) == /\ IF state[self] = STATE_CLOSE
                        THEN /\ IF fileLockedBy = None
@@ -60,13 +57,10 @@ program(self) == /\ IF state[self] = STATE_CLOSE
                                        /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                   ELSE /\ TRUE
                                        /\ UNCHANGED << fileLockedBy, state >>
-                       ELSE /\ IF state[self] = STATE_OPEN
-                                  THEN /\ Assert(fileLockedBy = self, 
-                                                 "Failure of assertion at line 26, column 13.")
-                                       /\ fileLockedBy' = None
-                                       /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
-                                  ELSE /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
-                                       /\ UNCHANGED fileLockedBy
+                       ELSE /\ Assert(fileLockedBy = self, 
+                                      "Failure of assertion at line 26, column 13.")
+                            /\ fileLockedBy' = None
+                            /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                  /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, maxPrograms, None, 
                                  programs >>
 
