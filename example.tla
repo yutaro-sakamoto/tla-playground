@@ -15,9 +15,12 @@ variables
     fileLockTable = <<>>,
     maxPrograms = 4,
     None = 0,
-    programs = 1..maxPrograms,
-    fileLockedBy = None
-  ;
+    programs = 1..maxPrograms;
+
+define
+    atMostOneProgramOpensOutput ==
+        Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+end define;
 
 process program \in programs
 variables state = STATE_CLOSE
@@ -25,15 +28,16 @@ begin
     OPERATE:
         (* open a file*)
         if state = STATE_CLOSE then
-            if fileLockedBy = None then
-                fileLockedBy := self;
-                state := STATE_OPEN;
+            if ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT then 
+                with open_mode \in OPEN_MODE do
+                    fileLockTable := Append(fileLockTable, <<self, open_mode>>);
+                    state := STATE_OPEN;
+                end with;
             end if;
         (* close a file*)
         else
-            assert fileLockedBy = self;
-            fileLockedBy := None;
-            state := STATE_CLOSE;
+            fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] # self);
+            state := STATE_CLOSE; 
         end if;
         goto OPERATE;
 end process;
@@ -43,11 +47,17 @@ end algorithm; *)
 \* BEGIN TRANSLATION
 VARIABLES pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
           OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
-          maxPrograms, None, programs, fileLockedBy, state
+          maxPrograms, None, programs
+
+(* define statement *)
+atMostOneProgramOpensOutput ==
+    Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+
+VARIABLE state
 
 vars == << pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
            OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
-           maxPrograms, None, programs, fileLockedBy, state >>
+           maxPrograms, None, programs, state >>
 
 ProcSet == (programs)
 
@@ -64,27 +74,25 @@ Init == (* Global variables *)
         /\ maxPrograms = 4
         /\ None = 0
         /\ programs = 1..maxPrograms
-        /\ fileLockedBy = None
         (* Process program *)
         /\ state = [self \in programs |-> STATE_CLOSE]
         /\ pc = [self \in ProcSet |-> "OPERATE"]
 
 OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
-                       THEN /\ IF fileLockedBy = None
-                                  THEN /\ fileLockedBy' = self
-                                       /\ state' = [state EXCEPT ![self] = STATE_OPEN]
+                       THEN /\ IF ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT
+                                  THEN /\ \E open_mode \in OPEN_MODE:
+                                            /\ fileLockTable' = Append(fileLockTable, <<self, open_mode>>)
+                                            /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                   ELSE /\ TRUE
-                                       /\ UNCHANGED << fileLockedBy, state >>
-                       ELSE /\ Assert(fileLockedBy = self, 
-                                      "Failure of assertion at line 34, column 13.")
-                            /\ fileLockedBy' = None
+                                       /\ UNCHANGED << fileLockTable, state >>
+                       ELSE /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] # self)
                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
                  /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, 
                                  OPEN_MODE_OUTPUT, OPEN_MODE_I_O, 
-                                 OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
-                                 maxPrograms, None, programs >>
+                                 OPEN_MODE_EXTEND, OPEN_MODE, maxPrograms, 
+                                 None, programs >>
 
 program(self) == OPERATE(self)
 
