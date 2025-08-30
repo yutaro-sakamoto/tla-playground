@@ -7,7 +7,7 @@ variables
     STATE_OPEN = "open",
     STATE_CLOSE = "close",
     None = 0,
-    programs = {1, 2, 3, 4},
+    programs = 1..4,
     fileLockedBy = None
   ;
 
@@ -45,7 +45,7 @@ Init == (* Global variables *)
         /\ STATE_OPEN = "open"
         /\ STATE_CLOSE = "close"
         /\ None = 0
-        /\ programs = {1, 2, 3, 4}
+        /\ programs = 1..4
         /\ fileLockedBy = None
         (* Process program *)
         /\ state = [self \in programs |-> defaultInitValue]
