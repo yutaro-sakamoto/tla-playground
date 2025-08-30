@@ -65,8 +65,10 @@ begin
                 assert state = STATE_OPEN;
                 if operation = OPERATION_CLOSE then
                     fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self);
-                    (* TODO: fix *)
-                    recordLock := SelectSeq(recordLock, LAMBDA record: record[2] /= self);
+                    recordLock := [i \in 1..Len(recordLock) |-> 
+                        IF recordLock[i][2] = self 
+                        THEN <<recordLock[i][1], None>> 
+                        ELSE recordLock[i]];
                     state := STATE_CLOSE;
                 elsif operation = OPERATION_WRITE then
                     skip;
@@ -112,7 +114,10 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                            "Failure of assertion at line 65, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
-                                            /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
+                                            /\ recordLock' =           [i \in 1..Len(recordLock) |->
+                                                             IF recordLock[i][2] = self
+                                                             THEN <<recordLock[i][1], None>>
+                                                             ELSE recordLock[i]]
                                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                                        ELSE /\ IF operation = OPERATION_WRITE
                                                   THEN /\ TRUE
