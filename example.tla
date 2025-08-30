@@ -1,28 +1,36 @@
 ----------------- MODULE example ----------------
 EXTENDS Integers, TLC, Sequences
 
+STATE_OPEN == "open"
+STATE_CLOSE == "close"
+OPEN_MODE_INPUT == "input"
+OPEN_MODE_OUTPUT == "output"
+OPEN_MODE_I_O == "I/O"
+
+OPEN_MODE_EXTEND == "extend"
+OPERATION_WRITE == "write"
+OPERATION_READ == "read"
+OPERATION_REWRITE == "rewrite"
+OPERATION_DELETE == "delete"
+OPERATION_CLOSE == "close"
+
+OPEN_MODE == {
+    OPEN_MODE_INPUT,
+    OPEN_MODE_OUTPUT, 
+    OPEN_MODE_I_O,
+    OPEN_MODE_EXTEND
+}
+
+ALLOWED_OPERATIONS == [
+    OPEN_MODE_INPUT |-> {OPERATION_READ},
+    OPEN_MODE_OUTPUT |-> {OPERATION_WRITE},
+    OPEN_MODE_I_O |-> {OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE},
+    OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
+]
+
 (*--algorithm example
 
 variables
-    STATE_OPEN = "open",
-    STATE_CLOSE = "close",
-    OPEN_MODE_INPUT = "input",
-    OPEN_MODE_OUTPUT ="output",
-    OPEN_MODE_I_O = "I-O",
-    OPEN_MODE_EXTEND = "EXTEND",
-    OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
-                 OPEN_MODE_I_O, OPEN_MODE_EXTEND},
-    OPERATION_WRITE = "write",
-    OPERATION_READ = "read",
-    OPERATION_REWRITE = "rewrite",
-    OPERATION_DELETE = "delete",
-    OPERATION_CLOSE = "close",
-    ALLOWED_OPERATIONS = [
-        OPEN_MODE_INPUT |-> {OPERATION_READ},
-        OPEN_MODE_OUTPUT |-> {OPERATION_WRITE},
-        OPEN_MODE_I_O |-> {OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE},
-        OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
-    ],
     fileLockTable = <<>>,
     maxPrograms = 4,
     None = 0,
@@ -64,11 +72,7 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
-          OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
-          OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, 
-          OPERATION_CLOSE, ALLOWED_OPERATIONS, fileLockTable, maxPrograms, 
-          None, programs, recordLock
+VARIABLES pc, fileLockTable, maxPrograms, None, programs, recordLock
 
 (* define statement *)
 atMostOneProgramOpensOutput ==
@@ -76,34 +80,12 @@ atMostOneProgramOpensOutput ==
 
 VARIABLE state
 
-vars == << pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
-           OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
-           OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, 
-           OPERATION_CLOSE, ALLOWED_OPERATIONS, fileLockTable, maxPrograms, 
-           None, programs, recordLock, state >>
+vars == << pc, fileLockTable, maxPrograms, None, programs, recordLock, state
+        >>
 
 ProcSet == (programs)
 
 Init == (* Global variables *)
-        /\ STATE_OPEN = "open"
-        /\ STATE_CLOSE = "close"
-        /\ OPEN_MODE_INPUT = "input"
-        /\ OPEN_MODE_OUTPUT = "output"
-        /\ OPEN_MODE_I_O = "I-O"
-        /\ OPEN_MODE_EXTEND = "EXTEND"
-        /\ OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT,
-                        OPEN_MODE_I_O, OPEN_MODE_EXTEND}
-        /\ OPERATION_WRITE = "write"
-        /\ OPERATION_READ = "read"
-        /\ OPERATION_REWRITE = "rewrite"
-        /\ OPERATION_DELETE = "delete"
-        /\ OPERATION_CLOSE = "close"
-        /\ ALLOWED_OPERATIONS =                      [
-                                    OPEN_MODE_INPUT |-> {OPERATION_READ},
-                                    OPEN_MODE_OUTPUT |-> {OPERATION_WRITE},
-                                    OPEN_MODE_I_O |-> {OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE},
-                                    OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
-                                ]
         /\ fileLockTable = <<>>
         /\ maxPrograms = 4
         /\ None = 0
@@ -124,7 +106,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE}:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 52, column 17.")
+                                           "Failure of assertion at line 60, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
                                             /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
@@ -133,13 +115,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                             /\ UNCHANGED << fileLockTable, 
                                                             recordLock, state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
-                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, 
-                                 OPEN_MODE_OUTPUT, OPEN_MODE_I_O, 
-                                 OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
-                                 OPERATION_READ, OPERATION_REWRITE, 
-                                 OPERATION_DELETE, OPERATION_CLOSE, 
-                                 ALLOWED_OPERATIONS, maxPrograms, None, 
-                                 programs >>
+                 /\ UNCHANGED << maxPrograms, None, programs >>
 
 program(self) == OPERATE(self)
 
