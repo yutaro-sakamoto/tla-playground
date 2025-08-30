@@ -6,8 +6,9 @@ EXTENDS Integers, TLC, Sequences
 variables
     STATE_OPEN = "open",
     STATE_CLOSE = "close",
+    maxPrograms = 4,
     None = 0,
-    programs = 1..4,
+    programs = 1..maxPrograms,
     fileLockedBy = None
   ;
 
@@ -35,17 +36,20 @@ end algorithm; *)
 
 \* BEGIN TRANSLATION
 CONSTANT defaultInitValue
-VARIABLES STATE_OPEN, STATE_CLOSE, None, programs, fileLockedBy, state
+VARIABLES STATE_OPEN, STATE_CLOSE, maxPrograms, None, programs, fileLockedBy, 
+          state
 
-vars == << STATE_OPEN, STATE_CLOSE, None, programs, fileLockedBy, state >>
+vars == << STATE_OPEN, STATE_CLOSE, maxPrograms, None, programs, fileLockedBy, 
+           state >>
 
 ProcSet == (programs)
 
 Init == (* Global variables *)
         /\ STATE_OPEN = "open"
         /\ STATE_CLOSE = "close"
+        /\ maxPrograms = 4
         /\ None = 0
-        /\ programs = 1..4
+        /\ programs = 1..maxPrograms
         /\ fileLockedBy = None
         (* Process program *)
         /\ state = [self \in programs |-> defaultInitValue]
@@ -58,12 +62,13 @@ program(self) == /\ IF state[self] = STATE_CLOSE
                                        /\ UNCHANGED << fileLockedBy, state >>
                        ELSE /\ IF state[self] = STATE_OPEN
                                   THEN /\ Assert(fileLockedBy = self, 
-                                                 "Failure of assertion at line 25, column 13.")
+                                                 "Failure of assertion at line 26, column 13.")
                                        /\ fileLockedBy' = None
                                        /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                                   ELSE /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                                        /\ UNCHANGED fileLockedBy
-                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, None, programs >>
+                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, maxPrograms, None, 
+                                 programs >>
 
 Next == (\E self \in programs: program(self))
 
