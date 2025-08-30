@@ -12,10 +12,22 @@ variables
     OPEN_MODE_EXTEND = "EXTEND",
     OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
                  OPEN_MODE_I_O, OPEN_MODE_EXTEND},
+    OPERATION_WRITE = "write",
+    OPERATION_READ = "read",
+    OPERATION_REWRITE = "rewrite",
+    OPERATION_DELETE = "delete",
+    OPERATION_CLOSE = "close",
+    ALLOWED_OPERATIONS = [
+        OPEN_MODE_INPUT |-> {OPERATION_READ},
+        OPEN_MODE_OUTPUT |-> {OPERATION_WRITE},
+        OPEN_MODE_I_O |-> {OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE},
+        OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
+    ],
     fileLockTable = <<>>,
     maxPrograms = 4,
     None = 0,
-    programs = 1..maxPrograms;
+    programs = 1..maxPrograms,
+    recordLock = <<>>;
 
 define
     atMostOneProgramOpensOutput ==
@@ -36,8 +48,13 @@ begin
             end if;
         (* close a file*)
         else
-            fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] # self);
-            state := STATE_CLOSE; 
+            with operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE} do
+                if operation = OPERATION_CLOSE then
+                    fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self);
+                    recordLock := SelectSeq(recordLock, LAMBDA record: record[2] /= self);
+                    state := STATE_CLOSE;
+                end if
+            end with;
         end if;
         goto OPERATE;
 end process;
@@ -46,8 +63,10 @@ end algorithm; *)
 
 \* BEGIN TRANSLATION
 VARIABLES pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
-          OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
-          maxPrograms, None, programs
+          OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
+          OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, 
+          OPERATION_CLOSE, ALLOWED_OPERATIONS, fileLockTable, maxPrograms, 
+          None, programs, recordLock
 
 (* define statement *)
 atMostOneProgramOpensOutput ==
@@ -56,8 +75,10 @@ atMostOneProgramOpensOutput ==
 VARIABLE state
 
 vars == << pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
-           OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
-           maxPrograms, None, programs, state >>
+           OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
+           OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, 
+           OPERATION_CLOSE, ALLOWED_OPERATIONS, fileLockTable, maxPrograms, 
+           None, programs, recordLock, state >>
 
 ProcSet == (programs)
 
@@ -70,10 +91,22 @@ Init == (* Global variables *)
         /\ OPEN_MODE_EXTEND = "EXTEND"
         /\ OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT,
                         OPEN_MODE_I_O, OPEN_MODE_EXTEND}
+        /\ OPERATION_WRITE = "write"
+        /\ OPERATION_READ = "read"
+        /\ OPERATION_REWRITE = "rewrite"
+        /\ OPERATION_DELETE = "delete"
+        /\ OPERATION_CLOSE = "close"
+        /\ ALLOWED_OPERATIONS =                      [
+                                    OPEN_MODE_INPUT |-> {OPERATION_READ},
+                                    OPEN_MODE_OUTPUT |-> {OPERATION_WRITE},
+                                    OPEN_MODE_I_O |-> {OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE},
+                                    OPEN_MODE_EXTEND |-> {OPERATION_WRITE}
+                                ]
         /\ fileLockTable = <<>>
         /\ maxPrograms = 4
         /\ None = 0
         /\ programs = 1..maxPrograms
+        /\ recordLock = <<>>
         (* Process program *)
         /\ state = [self \in programs |-> STATE_CLOSE]
         /\ pc = [self \in ProcSet |-> "OPERATE"]
@@ -86,13 +119,23 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                             /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                   ELSE /\ TRUE
                                        /\ UNCHANGED << fileLockTable, state >>
-                       ELSE /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] # self)
-                            /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
+                            /\ UNCHANGED recordLock
+                       ELSE /\ \E operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE}:
+                                 IF operation = OPERATION_CLOSE
+                                    THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
+                                         /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
+                                         /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
+                                    ELSE /\ TRUE
+                                         /\ UNCHANGED << fileLockTable, 
+                                                         recordLock, state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
                  /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, 
                                  OPEN_MODE_OUTPUT, OPEN_MODE_I_O, 
-                                 OPEN_MODE_EXTEND, OPEN_MODE, maxPrograms, 
-                                 None, programs >>
+                                 OPEN_MODE_EXTEND, OPEN_MODE, OPERATION_WRITE, 
+                                 OPERATION_READ, OPERATION_REWRITE, 
+                                 OPERATION_DELETE, OPERATION_CLOSE, 
+                                 ALLOWED_OPERATIONS, maxPrograms, None, 
+                                 programs >>
 
 program(self) == OPERATE(self)
 
