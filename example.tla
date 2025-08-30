@@ -49,6 +49,7 @@ begin
         (* close a file*)
         else
             with operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE} do
+                assert state = STATE_OPEN;
                 if operation = OPERATION_CLOSE then
                     fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self);
                     recordLock := SelectSeq(recordLock, LAMBDA record: record[2] /= self);
@@ -121,13 +122,15 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                        /\ UNCHANGED << fileLockTable, state >>
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE}:
-                                 IF operation = OPERATION_CLOSE
-                                    THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
-                                         /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
-                                         /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
-                                    ELSE /\ TRUE
-                                         /\ UNCHANGED << fileLockTable, 
-                                                         recordLock, state >>
+                                 /\ Assert(state[self] = STATE_OPEN, 
+                                           "Failure of assertion at line 52, column 17.")
+                                 /\ IF operation = OPERATION_CLOSE
+                                       THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
+                                            /\ recordLock' = SelectSeq(recordLock, LAMBDA record: record[2] /= self)
+                                            /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
+                                       ELSE /\ TRUE
+                                            /\ UNCHANGED << fileLockTable, 
+                                                            recordLock, state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
                  /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, 
                                  OPEN_MODE_OUTPUT, OPEN_MODE_I_O, 
