@@ -6,6 +6,13 @@ EXTENDS Integers, TLC, Sequences
 variables
     STATE_OPEN = "open",
     STATE_CLOSE = "close",
+    OPEN_MODE_INPUT = "input",
+    OPEN_MODE_OUTPUT ="output",
+    OPEN_MODE_I_O = "I-O",
+    OPEN_MODE_EXTEND = "EXTEND",
+    OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
+                 OPEN_MODE_I_O, OPEN_MODE_EXTEND},
+    fileLockTable = <<>>,
     maxPrograms = 4,
     None = 0,
     programs = 1..maxPrograms,
@@ -16,11 +23,13 @@ process program \in programs
 variables state = STATE_CLOSE
 begin
     OPERATE:
+        (* open a file*)
         if state = STATE_CLOSE then
             if fileLockedBy = None then
                 fileLockedBy := self;
                 state := STATE_OPEN;
             end if;
+        (* close a file*)
         else
             assert fileLockedBy = self;
             fileLockedBy := None;
@@ -32,17 +41,26 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES pc, STATE_OPEN, STATE_CLOSE, maxPrograms, None, programs, 
-          fileLockedBy, state
+VARIABLES pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
+          OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
+          maxPrograms, None, programs, fileLockedBy, state
 
-vars == << pc, STATE_OPEN, STATE_CLOSE, maxPrograms, None, programs, 
-           fileLockedBy, state >>
+vars == << pc, STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, OPEN_MODE_OUTPUT, 
+           OPEN_MODE_I_O, OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
+           maxPrograms, None, programs, fileLockedBy, state >>
 
 ProcSet == (programs)
 
 Init == (* Global variables *)
         /\ STATE_OPEN = "open"
         /\ STATE_CLOSE = "close"
+        /\ OPEN_MODE_INPUT = "input"
+        /\ OPEN_MODE_OUTPUT = "output"
+        /\ OPEN_MODE_I_O = "I-O"
+        /\ OPEN_MODE_EXTEND = "EXTEND"
+        /\ OPEN_MODE = {OPEN_MODE_INPUT, OPEN_MODE_OUTPUT,
+                        OPEN_MODE_I_O, OPEN_MODE_EXTEND}
+        /\ fileLockTable = <<>>
         /\ maxPrograms = 4
         /\ None = 0
         /\ programs = 1..maxPrograms
@@ -59,12 +77,14 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                   ELSE /\ TRUE
                                        /\ UNCHANGED << fileLockedBy, state >>
                        ELSE /\ Assert(fileLockedBy = self, 
-                                      "Failure of assertion at line 25, column 13.")
+                                      "Failure of assertion at line 34, column 13.")
                             /\ fileLockedBy' = None
                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
-                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, maxPrograms, None, 
-                                 programs >>
+                 /\ UNCHANGED << STATE_OPEN, STATE_CLOSE, OPEN_MODE_INPUT, 
+                                 OPEN_MODE_OUTPUT, OPEN_MODE_I_O, 
+                                 OPEN_MODE_EXTEND, OPEN_MODE, fileLockTable, 
+                                 maxPrograms, None, programs >>
 
 program(self) == OPERATE(self)
 
