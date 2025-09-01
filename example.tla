@@ -30,6 +30,9 @@ ALLOWED_OPERATIONS == [
 
 None == 0
 
+RECORD_NOT_EXISTS == -1
+RECORD_NOT_LOCKED == -2
+
 maxPrograms == 4
 programs == 1..maxPrograms
 
@@ -40,7 +43,7 @@ keys == 1..maxKeys
 
 variables
     fileLockTable = <<>>,
-    recordLock = [ key \in keys |-> None ];
+    recordLock = [ key \in keys |-> RECORD_NOT_EXISTS ];
 
 define
     atMostOneProgramOpensOutput ==
@@ -72,7 +75,11 @@ begin
                     ];
                     state := STATE_CLOSE;
                 elsif operation = OPERATION_WRITE then
-                    skip;
+                    if {key \in keys: recordLock[key] = RECORD_NOT_EXISTS} /= {} then
+                        with key \in {key \in keys: recordLock[key] = RECORD_NOT_EXISTS} do
+                            recordLock[key] := RECORD_NOT_LOCKED;
+                        end with;
+                    end if;
                 end if
             end with;
         end if;
@@ -96,7 +103,7 @@ ProcSet == (programs)
 
 Init == (* Global variables *)
         /\ fileLockTable = <<>>
-        /\ recordLock = [ key \in keys |-> None ]
+        /\ recordLock = [ key \in keys |-> RECORD_NOT_EXISTS ]
         (* Process program *)
         /\ state = [self \in programs |-> STATE_CLOSE]
         /\ pc = [self \in ProcSet |-> "OPERATE"]
@@ -112,7 +119,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE}:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 65, column 17.")
+                                           "Failure of assertion at line 68, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
                                             /\ recordLock' =               [key \in keys |->
@@ -122,10 +129,15 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                              ]
                                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                                        ELSE /\ IF operation = OPERATION_WRITE
-                                                  THEN /\ TRUE
+                                                  THEN /\ IF {key \in keys: recordLock[key] = RECORD_NOT_EXISTS} /= {}
+                                                             THEN /\ \E key \in {key \in keys: recordLock[key] = RECORD_NOT_EXISTS}:
+                                                                       recordLock' = [recordLock EXCEPT ![key] = RECORD_NOT_LOCKED]
+                                                             ELSE /\ TRUE
+                                                                  /\ UNCHANGED recordLock
                                                   ELSE /\ TRUE
+                                                       /\ UNCHANGED recordLock
                                             /\ UNCHANGED << fileLockTable, 
-                                                            recordLock, state >>
+                                                            state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
 
 program(self) == OPERATE(self)
