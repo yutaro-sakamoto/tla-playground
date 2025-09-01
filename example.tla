@@ -55,7 +55,7 @@ begin
         if state = STATE_CLOSE then
             if ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT then 
                 with open_mode \in OPEN_MODE do
-                    fileLockTable := Append(fileLockTable, <<self, open_mode>>);
+                    fileLockTable := SortSeq(Append(fileLockTable, <<self, open_mode>>), LAMBDA x, y: x[1] < y[1]);
                     state := STATE_OPEN;
                 end with;
             end if;
@@ -64,7 +64,7 @@ begin
             with operation \in {OPERATION_WRITE, OPERATION_READ, OPERATION_REWRITE, OPERATION_DELETE, OPERATION_CLOSE} do
                 assert state = STATE_OPEN;
                 if operation = OPERATION_CLOSE then
-                    fileLockTable := SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self);
+                    fileLockTable := SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1]);
                     recordLock := [i \in 1..Len(recordLock) |-> 
                         IF recordLock[i][2] = self 
                         THEN <<recordLock[i][1], None>> 
@@ -104,7 +104,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
                        THEN /\ IF ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT
                                   THEN /\ \E open_mode \in OPEN_MODE:
-                                            /\ fileLockTable' = Append(fileLockTable, <<self, open_mode>>)
+                                            /\ fileLockTable' = SortSeq(Append(fileLockTable, <<self, open_mode>>), LAMBDA x, y: x[1] < y[1])
                                             /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                   ELSE /\ TRUE
                                        /\ UNCHANGED << fileLockTable, state >>
@@ -113,7 +113,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                  /\ Assert(state[self] = STATE_OPEN, 
                                            "Failure of assertion at line 65, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
-                                       THEN /\ fileLockTable' = SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self)
+                                       THEN /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
                                             /\ recordLock' =           [i \in 1..Len(recordLock) |->
                                                              IF recordLock[i][2] = self
                                                              THEN <<recordLock[i][1], None>>
