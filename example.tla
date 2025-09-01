@@ -80,7 +80,17 @@ begin
                             recordLock[key] := RECORD_NOT_LOCKED;
                         end with;
                     end if;
-                end if
+                elsif operation = OPERATION_DELETE then
+                    if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
+                        with key \in {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} do
+                            if recordLock[key] = RECORD_NOT_LOCKED \/ recordLock[key] = self then
+                                recordLock[key] := RECORD_NOT_EXISTS;
+                            else
+                                skip;
+                            end if;
+                        end with;
+                    end if;
+                end if;
             end with;
         end if;
         goto OPERATE;
@@ -134,8 +144,17 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                                        recordLock' = [recordLock EXCEPT ![key] = RECORD_NOT_LOCKED]
                                                              ELSE /\ TRUE
                                                                   /\ UNCHANGED recordLock
-                                                  ELSE /\ TRUE
-                                                       /\ UNCHANGED recordLock
+                                                  ELSE /\ IF operation = OPERATION_DELETE
+                                                             THEN /\ IF {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {}
+                                                                        THEN /\ \E key \in {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS}:
+                                                                                  IF recordLock[key] = RECORD_NOT_LOCKED \/ recordLock[key] = self
+                                                                                     THEN /\ recordLock' = [recordLock EXCEPT ![key] = RECORD_NOT_EXISTS]
+                                                                                     ELSE /\ TRUE
+                                                                                          /\ UNCHANGED recordLock
+                                                                        ELSE /\ TRUE
+                                                                             /\ UNCHANGED recordLock
+                                                             ELSE /\ TRUE
+                                                                  /\ UNCHANGED recordLock
                                             /\ UNCHANGED << fileLockTable, 
                                                             state >>
                  /\ pc' = [pc EXCEPT ![self] = "OPERATE"]
