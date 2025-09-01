@@ -40,7 +40,7 @@ keys == 1..maxKeys
 
 variables
     fileLockTable = <<>>,
-    recordLock = <<>>;
+    recordLock = [ key \in keys |-> None ];
 
 define
     atMostOneProgramOpensOutput ==
@@ -65,10 +65,11 @@ begin
                 assert state = STATE_OPEN;
                 if operation = OPERATION_CLOSE then
                     fileLockTable := SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1]);
-                    recordLock := [i \in 1..Len(recordLock) |-> 
-                        IF recordLock[i][2] = self 
-                        THEN <<recordLock[i][1], None>> 
-                        ELSE recordLock[i]];
+                    recordLock := [key \in keys |-> 
+                        IF recordLock[key] = self 
+                        THEN None 
+                        ELSE recordLock[key]
+                    ];
                     state := STATE_CLOSE;
                 elsif operation = OPERATION_WRITE then
                     skip;
@@ -95,7 +96,7 @@ ProcSet == (programs)
 
 Init == (* Global variables *)
         /\ fileLockTable = <<>>
-        /\ recordLock = <<>>
+        /\ recordLock = [ key \in keys |-> None ]
         (* Process program *)
         /\ state = [self \in programs |-> STATE_CLOSE]
         /\ pc = [self \in ProcSet |-> "OPERATE"]
@@ -114,10 +115,11 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                            "Failure of assertion at line 65, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
-                                            /\ recordLock' =           [i \in 1..Len(recordLock) |->
-                                                             IF recordLock[i][2] = self
-                                                             THEN <<recordLock[i][1], None>>
-                                                             ELSE recordLock[i]]
+                                            /\ recordLock' =               [key \in keys |->
+                                                                 IF recordLock[key] = self
+                                                                 THEN None
+                                                                 ELSE recordLock[key]
+                                                             ]
                                             /\ state' = [state EXCEPT ![self] = STATE_CLOSE]
                                        ELSE /\ IF operation = OPERATION_WRITE
                                                   THEN /\ TRUE
