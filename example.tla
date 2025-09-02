@@ -53,13 +53,16 @@ variables
     recordLock = [ key \in keys |-> RECORD_NOT_EXISTS ];
 
 define
+    (* OPEN OUTPUTで開いているプログラムは常に1つ以下 *)
     atMostOneProgramOpensOutput ==
         Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+    (* レコードをロックしているプログラムは、FileLockTableにI-Oモードで開いていると記録されている *)
     allLockedRecordLockedByProgramWithOpenIO ==
         \A key \in keys:
             (recordLock[key] \in programs) =>
-                \A i \in 1..Len(SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])):
-                    SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])[i][2] = OPEN_MODE_I_O
+                LET lst == SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])
+                 IN \A i \in 1..Len(lst):
+                    lst[i][2] = OPEN_MODE_I_O
 end define;
 
 process program \in programs
@@ -188,11 +191,13 @@ VARIABLES pc, fileLockTable, recordLock
 (* define statement *)
 atMostOneProgramOpensOutput ==
     Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+
 allLockedRecordLockedByProgramWithOpenIO ==
     \A key \in keys:
         (recordLock[key] \in programs) =>
-            \A i \in 1..Len(SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])):
-                SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])[i][2] = OPEN_MODE_I_O
+            LET lst == SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])
+             IN \A i \in 1..Len(lst):
+                lst[i][2] = OPEN_MODE_I_O
 
 VARIABLES state, open_mode, prevLockRecord, lastOperation
 
@@ -227,7 +232,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 83, column 17.")
+                                           "Failure of assertion at line 86, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
