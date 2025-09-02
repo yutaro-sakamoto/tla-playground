@@ -1,5 +1,5 @@
 ----------------- MODULE example ----------------
-EXTENDS Integers, TLC, Sequences
+EXTENDS Integers, TLC, Sequences, FiniteSets
 
 STATE_OPEN == "open"
 STATE_CLOSE == "close"
@@ -63,6 +63,11 @@ define
                 LET lst == SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])
                  IN \A i \in 1..Len(lst):
                     lst[i][2] = OPEN_MODE_I_O
+    (* それぞれのプログラムは、高々1つのレコードだけをロックする *)
+    eachProgramLocksAtMostOneRecord ==
+        \A p \in programs:
+            LET lst == { key \in keys: recordLock[key] = p }
+             IN Cardinality(lst) <= 1
 end define;
 
 process program \in programs
@@ -198,6 +203,10 @@ allLockedRecordLockedByProgramWithOpenIO ==
             LET lst == SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])
              IN \A i \in 1..Len(lst):
                 lst[i][2] = OPEN_MODE_I_O
+eachProgramLocksAtMostOneRecord ==
+    \A p \in programs:
+        LET lst == { key \in keys: recordLock[key] = p }
+         IN Cardinality(lst) <= 1
 
 VARIABLES state, open_mode, prevLockRecord, lastOperation
 
@@ -232,7 +241,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 86, column 17.")
+                                           "Failure of assertion at line 90, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
