@@ -141,6 +141,25 @@ begin
                             end if;
                         end with;
                     end if;
+                elsif operation = OPERATION_REWRITE then
+                    if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
+                        with key \in {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} do
+                            if recordLock[key] = self \/ recordLock[key] = RECORD_NOT_LOCKED then
+                                (* rewrite the record *)
+                                skip;
+                                (* unlock previously locked record *)
+                                if prevLockRecord /= None then
+                                    recordLock[prevLockRecord] := RECORD_NOT_LOCKED;
+                                end if;
+                            else
+                                (* cannot rewrite a record locked by another process *)
+                                if prevLockRecord /= None then
+                                    recordLock[prevLockRecord] := RECORD_NOT_LOCKED;
+                                end if;
+                            end if;
+                        end with;
+                        prevLockRecord := None;
+                    end if;
                 end if;
             end with;
         end if;
@@ -253,9 +272,26 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                                                               ELSE /\ TRUE
                                                                                                    /\ UNCHANGED << recordLock, 
                                                                                                                    prevLockRecord >>
-                                                                                   ELSE /\ TRUE
-                                                                                        /\ UNCHANGED << recordLock, 
-                                                                                                        prevLockRecord >>
+                                                                                   ELSE /\ IF operation = OPERATION_REWRITE
+                                                                                              THEN /\ IF {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {}
+                                                                                                         THEN /\ \E key \in {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS}:
+                                                                                                                   IF recordLock[key] = self \/ recordLock[key] = RECORD_NOT_LOCKED
+                                                                                                                      THEN /\ TRUE
+                                                                                                                           /\ IF prevLockRecord[self] /= None
+                                                                                                                                 THEN /\ recordLock' = [recordLock EXCEPT ![prevLockRecord[self]] = RECORD_NOT_LOCKED]
+                                                                                                                                 ELSE /\ TRUE
+                                                                                                                                      /\ UNCHANGED recordLock
+                                                                                                                      ELSE /\ IF prevLockRecord[self] /= None
+                                                                                                                                 THEN /\ recordLock' = [recordLock EXCEPT ![prevLockRecord[self]] = RECORD_NOT_LOCKED]
+                                                                                                                                 ELSE /\ TRUE
+                                                                                                                                      /\ UNCHANGED recordLock
+                                                                                                              /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
+                                                                                                         ELSE /\ TRUE
+                                                                                                              /\ UNCHANGED << recordLock, 
+                                                                                                                              prevLockRecord >>
+                                                                                              ELSE /\ TRUE
+                                                                                                   /\ UNCHANGED << recordLock, 
+                                                                                                                   prevLockRecord >>
                                             /\ UNCHANGED << fileLockTable, 
                                                             state >>
                             /\ UNCHANGED open_mode
