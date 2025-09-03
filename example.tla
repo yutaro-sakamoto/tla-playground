@@ -406,4 +406,9 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
+(* 各プログラムがすでにロックしたと'認識している'レコードは、確かにそのプログラムがロックしている *)
+eachRecordWhichOneProgramThinkItIsLockedArelockedByTheProgram ==
+    \A p \in programs:
+        (prevLockRecord[p] /= None =>
+            recordLock[prevLockRecord[p]] = p)
 =======================
