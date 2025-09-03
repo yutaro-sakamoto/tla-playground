@@ -53,9 +53,11 @@ variables
     recordLock = [ key \in keys |-> RECORD_NOT_EXISTS ];
 
 define
-    (* OPEN OUTPUTで開いているプログラムは常に1つ以下 *)
-    atMostOneProgramOpensOutput ==
-        Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+    (* OPEN OUTPUTで開いているプログラムがあるなら、ファイルを開いているプログラムはただ1つ *)
+    ifOneProgramOpenOutputNoOtherOpen ==
+        fileLockTable = <<>> \/ (
+            (\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT) =>
+            Len(fileLockTable) = 1)
     (* レコードをロックしているプログラムは、FileLockTableにI-Oモードで開いていると記録されている *)
     allLockedRecordLockedByProgramWithOpenIO ==
         \A key \in keys:
@@ -77,14 +79,20 @@ begin
         (* open a file*)
         if state = STATE_CLOSE then
             lastOperation := OPERATION_OPEN;
-            if ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT then 
-                with mode \in OPEN_MODE do
-                    fileLockTable := SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1]);
-                    state := STATE_OPEN;
-                    prevLockRecord := None;
-                    open_mode := mode;
-                end with;
-            end if;
+            with mode \in OPEN_MODE do
+                if mode = OPEN_MODE_OUTPUT then
+                    if fileLockTable = <<>> then
+                        state := STATE_OPEN;
+                        prevLockRecord := None;
+                        open_mode := mode;
+                    end if;
+                elsif ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT then 
+                        fileLockTable := SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1]);
+                        state := STATE_OPEN;
+                        prevLockRecord := None;
+                        open_mode := mode;
+                end if;
+            end with;
         (* close a file*)
         else
             with operation \in ALLOWED_OPERATIONS[open_mode] do
@@ -196,8 +204,10 @@ CONSTANT defaultInitValue
 VARIABLES pc, fileLockTable, recordLock
 
 (* define statement *)
-atMostOneProgramOpensOutput ==
-    Len(SelectSeq(fileLockTable, LAMBDA entry: entry[2] = OPEN_MODE_OUTPUT)) <= 1
+ifOneProgramOpenOutputNoOtherOpen ==
+    fileLockTable = <<>> \/ (
+        (\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT) =>
+        Len(fileLockTable) = 1)
 
 allLockedRecordLockedByProgramWithOpenIO ==
     \A key \in keys:
@@ -231,20 +241,31 @@ Init == (* Global variables *)
 OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_OPEN]
-                            /\ IF ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT
-                                  THEN /\ \E mode \in OPEN_MODE:
-                                            /\ fileLockTable' = SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1])
-                                            /\ state' = [state EXCEPT ![self] = STATE_OPEN]
-                                            /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
-                                            /\ open_mode' = [open_mode EXCEPT ![self] = mode]
-                                  ELSE /\ TRUE
-                                       /\ UNCHANGED << fileLockTable, state, 
-                                                       open_mode, 
-                                                       prevLockRecord >>
+                            /\ \E mode \in OPEN_MODE:
+                                 IF mode = OPEN_MODE_OUTPUT
+                                    THEN /\ IF fileLockTable = <<>>
+                                               THEN /\ state' = [state EXCEPT ![self] = STATE_OPEN]
+                                                    /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
+                                                    /\ open_mode' = [open_mode EXCEPT ![self] = mode]
+                                               ELSE /\ TRUE
+                                                    /\ UNCHANGED << state, 
+                                                                    open_mode, 
+                                                                    prevLockRecord >>
+                                         /\ UNCHANGED fileLockTable
+                                    ELSE /\ IF ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT
+                                               THEN /\ fileLockTable' = SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1])
+                                                    /\ state' = [state EXCEPT ![self] = STATE_OPEN]
+                                                    /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
+                                                    /\ open_mode' = [open_mode EXCEPT ![self] = mode]
+                                               ELSE /\ TRUE
+                                                    /\ UNCHANGED << fileLockTable, 
+                                                                    state, 
+                                                                    open_mode, 
+                                                                    prevLockRecord >>
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 91, column 17.")
+                                           "Failure of assertion at line 99, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
