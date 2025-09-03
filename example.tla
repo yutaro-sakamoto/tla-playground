@@ -93,10 +93,10 @@ begin
                         open_mode := mode;
                 end if;
             end with;
-        (* close a file*)
         else
             with operation \in ALLOWED_OPERATIONS[open_mode] do
                 assert state = STATE_OPEN;
+                (* close a file*)
                 if operation = OPERATION_CLOSE then
                     lastOperation := OPERATION_CLOSE;
                     fileLockTable := SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1]);
@@ -106,6 +106,7 @@ begin
                         ELSE recordLock[key]
                     ];
                     state := STATE_CLOSE;
+                (* write a record *)
                 elsif operation = OPERATION_WRITE then
                     lastOperation := OPERATION_WRITE;
                     if {key \in keys: recordLock[key] = RECORD_NOT_EXISTS} /= {} then
@@ -119,6 +120,7 @@ begin
                             end if;
                         end with;
                     end if;
+                (* delete a record *)
                 elsif operation = OPERATION_DELETE then
                     lastOperation := OPERATION_DELETE;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
@@ -137,6 +139,7 @@ begin
                             end if;
                         end with;
                     end if;
+                (* read a record without locking it *)
                 elsif operation = OPERATION_READ_WITH_NO_LOCK then
                     lastOperation := OPERATION_READ_WITH_NO_LOCK;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
@@ -145,6 +148,7 @@ begin
                         end if;
                         prevLockRecord := None;
                     end if;
+                (* read a record and lock it *)
                 elsif operation = OPERATION_READ_WITH_LOCK then
                     lastOperation := OPERATION_READ_WITH_LOCK;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
@@ -171,6 +175,7 @@ begin
                             end if;
                         end with;
                     end if;
+                (* rewrite a record *)
                 elsif operation = OPERATION_REWRITE then
                     lastOperation := OPERATION_REWRITE;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
