@@ -43,7 +43,7 @@ RECORD_NOT_LOCKED == -2
 maxPrograms == 4
 programs == 1..maxPrograms
 
-maxKeys == 3
+maxKeys == 4
 keys == 1..maxKeys
 
 (*--algorithm example
