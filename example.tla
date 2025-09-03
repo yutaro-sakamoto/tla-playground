@@ -79,6 +79,10 @@ begin
         (* open a file*)
         if state = STATE_CLOSE then
             lastOperation := OPERATION_OPEN;
+
+            (* Just before a program opens a file, the file must not be opened by the program *)
+            assert ~\E i \in 1..Len(fileLockTable): fileLockTable[i][1] = self;
+
             with mode \in OPEN_MODE do
                 if mode = OPEN_MODE_OUTPUT then
                     if fileLockTable = <<>> then
@@ -246,6 +250,8 @@ Init == (* Global variables *)
 OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_OPEN]
+                            /\ Assert(~\E i \in 1..Len(fileLockTable): fileLockTable[i][1] = self, 
+                                      "Failure of assertion at line 84, column 13.")
                             /\ \E mode \in OPEN_MODE:
                                  IF mode = OPEN_MODE_OUTPUT
                                     THEN /\ IF fileLockTable = <<>>
@@ -270,7 +276,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 99, column 17.")
+                                           "Failure of assertion at line 102, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
