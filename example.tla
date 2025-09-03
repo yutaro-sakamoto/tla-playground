@@ -132,6 +132,7 @@ begin
                 elsif operation = OPERATION_READ_WITH_NO_LOCK then
                     lastOperation := OPERATION_READ_WITH_NO_LOCK;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
+                        (* TODO: prevLockRecordがNoneと等しいときとそうでないときで場合分けが必要 *)
                         recordLock[prevLockRecord] := RECORD_NOT_LOCKED;
                         prevLockRecord := None;
                     end if;
@@ -203,6 +204,7 @@ allLockedRecordLockedByProgramWithOpenIO ==
             LET lst == SelectSeq(fileLockTable, LAMBDA entry: entry[1] = recordLock[key])
              IN \A i \in 1..Len(lst):
                 lst[i][2] = OPEN_MODE_I_O
+
 eachProgramLocksAtMostOneRecord ==
     \A p \in programs:
         LET lst == { key \in keys: recordLock[key] = p }
@@ -241,7 +243,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 90, column 17.")
+                                           "Failure of assertion at line 91, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
