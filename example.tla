@@ -431,4 +431,10 @@ eachRecordWhichOneProgramThinkItIsLockedAreNotLockedByAnotherProgram ==
     \A p1, p2 \in programs:
         (p1 /= p2) =>
             (prevLockRecord[p1] = None \/ prevLockRecord[p2] = None \/ prevLockRecord[p1] /= prevLockRecord[p2])
+(* OPEN I-O以外でファイルを開いているプログラムは、いかなるレコードもロックしていないと'認識している'*)
+eachProgramWhoseOpenModeIsNotIODoesNotThinkItLocksAnyRecord ==
+    \A p \in programs:
+        (\E i \in 1..Len(fileLockTable) : (fileLockTable[i][1] = p /\ fileLockTable[i][2] /= OPEN_MODE_I_O)) =>
+            prevLockRecord[p] = None
+
 =======================
