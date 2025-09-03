@@ -420,6 +420,9 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
+(* 以下では'認識している'という用語を使っている *)
+(* 「るプログラムpのローカル変数prevLockRecordが1のとき、プログラムpはkeyが1のレコードをロックしていると'認識している'」という使い方をする *)
+
 (* 各プログラムがすでにロックしたと'認識している'レコードは、確かにそのプログラムがロックしている *)
 eachRecordWhichOneProgramThinkItIsLockedArelockedByTheProgram ==
     \A p \in programs:
