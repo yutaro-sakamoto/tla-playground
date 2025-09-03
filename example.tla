@@ -429,6 +429,12 @@ eachRecordWhichOneProgramThinkItIsLockedArelockedByTheProgram ==
         (prevLockRecord[p] /= None =>
             recordLock[prevLockRecord[p]] = p)
 
+(* レコードがあるプログラムにロックされているなら、そのプログラムはそのレコードをロックしていると認識している *)
+ifRecordIsLockedByAProgramTheProgramThinksItLocksTheRecord ==
+    \A key \in keys:
+        ((recordLock[key] /= RECORD_NOT_EXISTS /\ recordLock[key] /= RECORD_NOT_LOCKED) =>
+            prevLockRecord[recordLock[key]] = key)
+
 (* 各プログラムがすでにロックしたと'認識している'レコードは、プログラム間で重複しない *)
 eachRecordWhichOneProgramThinkItIsLockedAreNotLockedByAnotherProgram ==
     \A p1, p2 \in programs:
