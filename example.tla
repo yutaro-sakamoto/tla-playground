@@ -132,8 +132,9 @@ begin
                 elsif operation = OPERATION_READ_WITH_NO_LOCK then
                     lastOperation := OPERATION_READ_WITH_NO_LOCK;
                     if {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {} then
-                        (* TODO: prevLockRecordがNoneと等しいときとそうでないときで場合分けが必要 *)
-                        recordLock[prevLockRecord] := RECORD_NOT_LOCKED;
+                        if prevLockRecord /= None then
+                            recordLock[prevLockRecord] := RECORD_NOT_LOCKED;
+                        end if;
                         prevLockRecord := None;
                     end if;
                 elsif operation = OPERATION_READ_WITH_LOCK then
@@ -286,7 +287,10 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                              ELSE /\ IF operation = OPERATION_READ_WITH_NO_LOCK
                                                                         THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_READ_WITH_NO_LOCK]
                                                                              /\ IF {key \in keys: recordLock[key] /= RECORD_NOT_EXISTS} /= {}
-                                                                                   THEN /\ recordLock' = [recordLock EXCEPT ![prevLockRecord[self]] = RECORD_NOT_LOCKED]
+                                                                                   THEN /\ IF prevLockRecord[self] /= None
+                                                                                              THEN /\ recordLock' = [recordLock EXCEPT ![prevLockRecord[self]] = RECORD_NOT_LOCKED]
+                                                                                              ELSE /\ TRUE
+                                                                                                   /\ UNCHANGED recordLock
                                                                                         /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
                                                                                    ELSE /\ TRUE
                                                                                         /\ UNCHANGED << recordLock, 
