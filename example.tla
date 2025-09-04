@@ -100,6 +100,7 @@ begin
             with mode \in OPEN_MODE do
                 if mode = OPEN_MODE_OUTPUT then
                     if fileLockTable = <<>> then
+                        fileLockTable := SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1]);
                         state := STATE_OPEN;
                         prevLockRecord := None;
                         open_mode := mode;
@@ -282,14 +283,15 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ \E mode \in OPEN_MODE:
                                  IF mode = OPEN_MODE_OUTPUT
                                     THEN /\ IF fileLockTable = <<>>
-                                               THEN /\ state' = [state EXCEPT ![self] = STATE_OPEN]
+                                               THEN /\ fileLockTable' = SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1])
+                                                    /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                                     /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
                                                     /\ open_mode' = [open_mode EXCEPT ![self] = mode]
                                                ELSE /\ TRUE
-                                                    /\ UNCHANGED << state, 
+                                                    /\ UNCHANGED << fileLockTable, 
+                                                                    state, 
                                                                     open_mode, 
                                                                     prevLockRecord >>
-                                         /\ UNCHANGED fileLockTable
                                     ELSE /\ IF ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT
                                                THEN /\ fileLockTable' = SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1])
                                                     /\ state' = [state EXCEPT ![self] = STATE_OPEN]
@@ -303,7 +305,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 116, column 17.")
+                                           "Failure of assertion at line 117, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
@@ -445,5 +447,8 @@ eachProgramWhoseOpenModeIsNotIODoesNotThinkItLocksAnyRecord ==
     \A p \in programs:
         (\E i \in 1..Len(fileLockTable) : (fileLockTable[i][1] = p /\ fileLockTable[i][2] /= OPEN_MODE_I_O)) =>
             prevLockRecord[p] = None
-
+(* 各プログラムについて内部stateがSTATE_OPENされていることとfilelockTableに登録されているは同値 *)
+eachProgramStateIsOpenIffItIsInFileLockTable ==
+    \A p \in programs:
+        ((state[p] = STATE_OPEN) <=> (\E i \in 1..Len(fileLockTable) : fileLockTable[i][1] = p))
 =======================
