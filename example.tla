@@ -83,6 +83,13 @@ define
             \A key \in keys: ~(recordLock[key] \in programs)
 end define;
 
+(*process proc = maxPrograms + 1 
+begin
+    FORCE_UNLOCK:
+        fileLockTable := <<>>;
+        recordLock := [ key \in keys |-> IF key = RECORD_NOT_EXISTS THEN RECORD_NOT_EXISTS ELSE RECORD_NOT_LOCKED ];
+end process;*)
+
 process program \in programs
 variables state = STATE_CLOSE, open_mode = OPEN_MODE_INPUT, prevLockRecord = None, lastOperation
 begin
@@ -277,9 +284,9 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_OPEN]
                             /\ Assert(~\E i \in 1..Len(fileLockTable): fileLockTable[i][1] = self, 
-                                      "Failure of assertion at line 95, column 13.")
+                                      "Failure of assertion at line 102, column 13.")
                             /\ Assert(~\E key \in keys: recordLock[key] = self, 
-                                      "Failure of assertion at line 98, column 13.")
+                                      "Failure of assertion at line 105, column 13.")
                             /\ \E mode \in OPEN_MODE:
                                  IF mode = OPEN_MODE_OUTPUT
                                     THEN /\ IF fileLockTable = <<>>
@@ -305,7 +312,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                             /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 117, column 17.")
+                                           "Failure of assertion at line 124, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
