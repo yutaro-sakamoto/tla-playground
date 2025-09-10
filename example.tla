@@ -111,6 +111,7 @@ begin
                         state := STATE_OPEN;
                         prevLockRecord := None;
                         open_mode := mode;
+                        recordLock := [key \in keys |-> RECORD_NOT_EXISTS];
                     end if;
                 elsif ~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_OUTPUT then 
                         fileLockTable := SortSeq(Append(fileLockTable, <<self, mode>>), LAMBDA x, y: x[1] < y[1]);
@@ -294,8 +295,10 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                     /\ state' = [state EXCEPT ![self] = STATE_OPEN]
                                                     /\ prevLockRecord' = [prevLockRecord EXCEPT ![self] = None]
                                                     /\ open_mode' = [open_mode EXCEPT ![self] = mode]
+                                                    /\ recordLock' = [key \in keys |-> RECORD_NOT_EXISTS]
                                                ELSE /\ TRUE
                                                     /\ UNCHANGED << fileLockTable, 
+                                                                    recordLock, 
                                                                     state, 
                                                                     open_mode, 
                                                                     prevLockRecord >>
@@ -309,10 +312,10 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                                                     state, 
                                                                     open_mode, 
                                                                     prevLockRecord >>
-                            /\ UNCHANGED recordLock
+                                         /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 124, column 17.")
+                                           "Failure of assertion at line 125, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
