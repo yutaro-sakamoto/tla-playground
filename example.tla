@@ -81,6 +81,11 @@ define
     ifNoProgramOpensIONoRecordIsLocked ==
         (~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_I_O) =>
             \A key \in keys: ~(recordLock[key] \in programs)
+    (* I-O以外でファイルを開いているプログラムによってロックされたレコードはない *)
+    eachProgramOpenWithoutIODoesNotLockAnyRecord ==
+        \A p \in programs:
+            ((\E i \in 1..Len(fileLockTable) : (fileLockTable[i][1] = p /\ fileLockTable[i][2] /= OPEN_MODE_I_O)) =>
+                \A key \in keys: recordLock[key] /= p)
 end define;
 
 (*process proc = maxPrograms + 1 
@@ -264,6 +269,11 @@ ifNoProgramOpensIONoRecordIsLocked ==
     (~\E i \in 1..Len(fileLockTable): fileLockTable[i][2] = OPEN_MODE_I_O) =>
         \A key \in keys: ~(recordLock[key] \in programs)
 
+eachProgramOpenWithoutIODoesNotLockAnyRecord ==
+    \A p \in programs:
+        ((\E i \in 1..Len(fileLockTable) : (fileLockTable[i][1] = p /\ fileLockTable[i][2] /= OPEN_MODE_I_O)) =>
+            \A key \in keys: recordLock[key] /= p)
+
 VARIABLES state, open_mode, prevLockRecord, lastOperation
 
 vars == << pc, fileLockTable, recordLock, state, open_mode, prevLockRecord, 
@@ -285,9 +295,9 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                  /\ IF state[self] = STATE_CLOSE
                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_OPEN]
                             /\ Assert(~\E i \in 1..Len(fileLockTable): fileLockTable[i][1] = self, 
-                                      "Failure of assertion at line 102, column 13.")
+                                      "Failure of assertion at line 107, column 13.")
                             /\ Assert(~\E key \in keys: recordLock[key] = self, 
-                                      "Failure of assertion at line 105, column 13.")
+                                      "Failure of assertion at line 110, column 13.")
                             /\ \E mode \in OPEN_MODE:
                                  IF mode = OPEN_MODE_OUTPUT
                                     THEN /\ IF fileLockTable = <<>>
@@ -315,7 +325,7 @@ OPERATE(self) == /\ pc[self] = "OPERATE"
                                          /\ UNCHANGED recordLock
                        ELSE /\ \E operation \in ALLOWED_OPERATIONS[open_mode[self]]:
                                  /\ Assert(state[self] = STATE_OPEN, 
-                                           "Failure of assertion at line 125, column 17.")
+                                           "Failure of assertion at line 130, column 17.")
                                  /\ IF operation = OPERATION_CLOSE
                                        THEN /\ lastOperation' = [lastOperation EXCEPT ![self] = OPERATION_CLOSE]
                                             /\ fileLockTable' = SortSeq(SelectSeq(fileLockTable, LAMBDA entry: entry[1] /= self), LAMBDA x, y: x[1] < y[1])
